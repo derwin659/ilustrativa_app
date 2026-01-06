@@ -1,0 +1,28 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual env
+venv/
+.env
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Static generated images
+static/*.png
+static/*.jpg
+
+# Models / Weights (NO subir a git)
+models/
+loras/
+training/
+*.safetensors
+*.ckpt
+*.bin
+
+# OS
+.DS_Store
+Thumbs.db
