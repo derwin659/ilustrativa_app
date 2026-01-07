@@ -39,11 +39,8 @@ CORTE_PROMPTS = {
     "clean low fade"
     ),
     "MID_FADE": (
-    "professional barber mid fade haircut, "
-    "smooth gradual fade from skin to hair, "
-    "clear skin fade at the bottom, "
-    "natural hair density on top, "
-    "real barbershop fade"
+    "mid fade haircut, professional barber fade, "
+    "realistic scalp texture, smooth skin to mid gradient"
     )
 }
 
