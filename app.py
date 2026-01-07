@@ -2,7 +2,9 @@ import os
 import base64
 from io import BytesIO
 from PIL import Image
-from fastapi import FastAPI, HTTPException
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from typing import Dict, List
 
@@ -11,15 +13,28 @@ from services.prompt_builder import build_prompt
 
 app = FastAPI()
 
+# =========================
+# STATIC (archivos públicos)
+# =========================
 STATIC_DIR = "static"
 os.makedirs(STATIC_DIR, exist_ok=True)
+
+# Monta /static para servir imágenes
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
+
+# Base URL pública (PRODUCCIÓN)
+# Ejemplos:
+#   PUBLIC_BASE_URL=https://api.gods-tech.ai
+#   PUBLIC_BASE_URL=https://<tu-ip>:8003   (si expones puerto directo)
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+
 
 # =========================
 # MODELOS
 # =========================
 class Corte(BaseModel):
     nombre: str
-    tipo: str  # ej: "mid_fade"
+    tipo: str  # ej: "MID_FADE"
 
 class Tinte(BaseModel):
     aplicar: bool
@@ -39,6 +54,7 @@ class RequestGenerar(BaseModel):
 
 MAPEO_VISTAS = {"frontal": "frontal", "lateral": "lateral", "trasera": "trasera"}
 
+
 # =========================
 # UTILS
 # =========================
@@ -50,18 +66,32 @@ def base64_to_pil(base64_str: str) -> Image.Image:
     except Exception:
         raise HTTPException(status_code=400, detail="Imagen base64 inválida")
 
+
+def get_public_base_url(request: Request) -> str:
+    """
+    Devuelve la base URL pública.
+    Prioridad:
+      1) PUBLIC_BASE_URL (env) -> recomendado para producción
+      2) Construir con headers del request (soporta proxys)
+    """
+    if PUBLIC_BASE_URL:
+        return PUBLIC_BASE_URL
+
+    # Si estás detrás de proxy (Nginx/Cloudflare), suelen venir estos headers
+    proto = request.headers.get("x-forwarded-proto") or request.url.scheme
+    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.netloc
+    return f"{proto}://{host}".rstrip("/")
+
+
 # =========================
 # ENDPOINT
 # =========================
 @app.post("/generar")
-def generar(req: RequestGenerar):
+def generar(req: RequestGenerar, request: Request):
     resultados = {}
     corte_tipo = req.corte.tipo
 
-    # ✅ Recomendación realista:
-    # - Para generar "frontal", necesitas SI o SI la imagen frontal.
-    # - Para lateral/trasera, lo ideal es su propia foto real.
-    #   (si no la mandas, el resultado será menos fiel si intentas inventar el ángulo)
+    base_url = get_public_base_url(request)
 
     for vista in req.vistas:
         vista_norm = MAPEO_VISTAS.get(vista)
@@ -74,7 +104,7 @@ def generar(req: RequestGenerar):
 
         imagen_base = base64_to_pil(imagen_b64)
 
-        # Prompt específico por vista (tu builder decide)
+        # Prompt específico por vista
         prompt = build_prompt(req, vista_norm)
 
         try:
@@ -88,11 +118,12 @@ def generar(req: RequestGenerar):
             print("⚠️ Error generación:", e)
             imagen_resultado = imagen_base
 
-        # Guardar
+        # Guardar en /static
         nombre_archivo = f"{req.sesionId}_{vista_norm}.png"
         ruta = os.path.join(STATIC_DIR, nombre_archivo)
         imagen_resultado.save(ruta)
 
-        resultados[vista_norm] = f"/static/{nombre_archivo}"
+        # ✅ URL ABSOLUTA para el frontend
+        resultados[vista_norm] = f"{base_url}/static/{nombre_archivo}"
 
     return {"sesionId": req.sesionId, "imagenes": resultados}
