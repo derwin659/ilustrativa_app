@@ -1,5 +1,5 @@
 # =========================
-# CORE
+# CORE (CUDA 11.8 SAFE)
 # =========================
 torch==2.1.2
 torchvision==0.16.2
@@ -13,29 +13,35 @@ transformers==4.36.2
 huggingface_hub==0.20.3
 accelerate==0.25.0
 safetensors==0.4.1
-xformers==0.0.23.post1; platform_system != "Windows"
+
+# ❌ xformers DESACTIVADO (causa principal de segfault)
+# xformers==0.0.23.post1
 
 # =========================
-# CONTROLNET / IMAGE
+# IMAGE / NUMPY (CRÍTICO)
 # =========================
-opencv-python-headless
-pillow
-numpy==1.26.4
+numpy==1.26.4        # 🔒 NO usar numpy 2.x
+pillow==10.1.0
+opencv-python-headless==4.9.0.80
+scipy==1.11.4
+
 # =========================
-# FACE ANALYSIS
+# FACE ANALYSIS (INSIGHTFACE)
 # =========================
 insightface==0.7.3
-onnxruntime-gpu==1.16.3
+
+# 🔒 CPU runtime (EVITA libcublasLt.so crash)
+onnxruntime==1.16.3
+# ❌ NO usar onnxruntime-gpu
 
 # =========================
 # API
 # =========================
-fastapi
-uvicorn[standard]
-pydantic
+fastapi==0.109.0
+uvicorn[standard]==0.25.0
+pydantic==2.5.3
 
 # =========================
 # UTILS
 # =========================
-tqdm
-scipy
+tqdm==4.66.1
