@@ -1,7 +1,7 @@
+import traceback
 import runpod
 
 from schemas_runpod import RequestGenerar
-from services.generation_runner import run_generation
 
 
 def handler(job):
@@ -16,6 +16,8 @@ def handler(job):
         }
 
     try:
+        from services.generation_runner import run_generation
+
         result = run_generation(
             req=req,
             base_url=None,
@@ -27,15 +29,11 @@ def handler(job):
             "message": "Generación completada",
             **result
         }
-    except ValueError as e:
-        return {
-            "success": False,
-            "message": str(e)
-        }
     except Exception as e:
         return {
             "success": False,
-            "message": f"Error interno en worker: {str(e)}"
+            "message": f"Error interno en worker: {str(e)}",
+            "traceback": traceback.format_exc()
         }
 
 
