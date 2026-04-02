@@ -3,10 +3,12 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
-
-# Virtual env
 venv/
+
 .env
+.idea/
+# Virtual env
+
 
 # Jupyter
 .ipynb_checkpoints/
