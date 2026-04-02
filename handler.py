@@ -1,5 +1,7 @@
 import runpod
+
 from schemas_runpod import RequestGenerar
+from services.generation_runner import run_generation
 
 
 def handler(job):
@@ -13,23 +15,28 @@ def handler(job):
             "message": f"Payload inválido: {str(e)}"
         }
 
-    if "frontal" not in req.imagenes:
+    try:
+        result = run_generation(
+            req=req,
+            base_url=None,
+            save_files=False
+        )
+
+        return {
+            "success": True,
+            "message": "Generación completada",
+            **result
+        }
+    except ValueError as e:
         return {
             "success": False,
-            "message": "Imagen frontal requerida"
+            "message": str(e)
         }
-
-    return {
-        "success": True,
-        "message": "Runpod Serverless funcionando",
-        "sesionId": req.sesionId,
-        "imagenes_recibidas": list(req.imagenes.keys()),
-        "corte": {
-            "nombre": req.corte.nombre,
-            "tipo": req.corte.tipo
-        },
-        "vistas": req.vistas
-    }
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Error interno en worker: {str(e)}"
+        }
 
 
 runpod.serverless.start({"handler": handler})

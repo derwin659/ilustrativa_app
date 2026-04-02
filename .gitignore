@@ -5,6 +5,9 @@ __pycache__/
 *.pyd
 venv/
 
+static/
+lora/dataset/
+*.pdf
 .env
 .idea/
 # Virtual env
