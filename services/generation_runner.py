@@ -4,10 +4,8 @@ from io import BytesIO
 from typing import Dict, Any
 
 from PIL import Image
-def run_generation(req, base_url: str | None = None, save_files: bool = True):
-    from services.sd_services import generar_sd
-    from services.prompt_builder import build_prompt
-    ...
+from services.sd_services import generar_sd
+from services.prompt_builder import build_prompt
 
 
 STATIC_DIR = "static"
