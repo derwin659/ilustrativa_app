@@ -4,3 +4,10 @@ uvicorn[standard]==0.25.0
 pydantic==2.5.3
 pillow==10.1.0
 python-multipart
+opencv-python-headless
+diffusers
+transformers
+accelerate
+safetensors
+insightface
+onnxruntime-gpu
