@@ -58,9 +58,21 @@ def get_public_base_url(request: Request) -> str:
 # =========================
 # ENDPOINTS
 # =========================
+from services.sd_services import get_pipe_inpaint, DEVICE
+
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    try:
+        if DEVICE != "cuda":
+            return {"status": "degraded", "device": DEVICE}
+
+        pipe = get_pipe_inpaint()
+        if pipe is None:
+            raise RuntimeError("Pipeline no cargado")
+
+        return {"status": "ok", "device": DEVICE, "pipeline": "ready"}
+    except Exception as e:
+        raise HTTPException(status_code=503, detail=f"Pipeline no listo: {e}")
 
 
 @app.post("/generar")
