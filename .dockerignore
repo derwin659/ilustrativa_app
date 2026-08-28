@@ -1,6 +1,13 @@
-venv
-__pycache__
-*.pyc
 .git
+.gitignore
 .idea
-static
+analytics_service
+OwnerCashPage.sunat.jsx
+create_sales_guide.py
+output
+patch_stage
+tmp
+venv
+**/__pycache__
+**/*.pyc
+**/.venv
