@@ -1,19 +1,53 @@
 from __future__ import annotations
 
-CATALOG = {
-    "ovalado": [("MID_FADE", .94), ("TAPER", .90), ("FADE_MODERNO", .86)],
-    "redondo": [("MID_FADE", .93), ("FADE_MODERNO", .89), ("TAPER", .82)],
-    "cuadrado": [("LOW_FADE", .94), ("BUZZ", .88), ("TAPER", .84)],
-    "alargado": [("LOW_FADE", .91), ("TAPER", .87), ("BUZZ", .80)],
-}
+from catalog import HAIRCUTS, TINT_SERVICES, Haircut
+
+LENGTH_ORDER = {"rapado": 0, "corto": 1, "medio": 2, "largo": 3}
+
+
+def _score(style: Haircut, face_shape: str, density: str, texture: str, length: str) -> tuple[float, list[str]]:
+    score = .52
+    reasons: list[str] = []
+    if face_shape in style.face_shapes:
+        score += .20
+        reasons.append(f"equilibra un rostro {face_shape}")
+    if texture in style.textures:
+        score += .13
+        reasons.append(f"funciona con cabello {texture}")
+    if density in style.densities:
+        score += .08
+        reasons.append(f"es compatible con densidad {density}")
+
+    available = LENGTH_ORDER.get(length, 1)
+    required = LENGTH_ORDER.get(style.min_length, 1)
+    if available >= required:
+        score += .07
+        reasons.append("el largo actual permite trabajarlo")
+    else:
+        score -= .15 * (required - available)
+        reasons.append(f"requiere dejar crecer hasta largo {style.min_length}")
+    return round(min(.97, max(.40, score)), 2), reasons
+
+
+def recommend_detailed(face_shape: str, density: str, texture: str = "lacio", length: str = "corto", limit: int = 8):
+    ranked = []
+    for style in HAIRCUTS:
+        score, reasons = _score(style, face_shape, density, texture, length)
+        ranked.append({
+            "nombre": style.code,
+            "nombre_visible": style.display_name,
+            "score": score,
+            "riesgo": "bajo" if score >= .82 else "medio" if score >= .68 else "alto",
+            "razones": reasons,
+            "mantenimiento": style.maintenance,
+            "largo_minimo": style.min_length,
+            "vista_generativa_disponible": style.generative_ready,
+        })
+    ranked.sort(key=lambda item: (item["score"], item["vista_generativa_disponible"]), reverse=True)
+    return ranked[:limit], [dict(service) for service in TINT_SERVICES]
 
 
 def recommend(face_shape: str, density: str):
-    rows = CATALOG.get(face_shape, CATALOG["ovalado"])
-    adjustment = -.04 if density == "baja" else .0
-    cuts = [
-        {"nombre": name, "score": round(max(.75, score + adjustment), 2), "riesgo": "bajo" if score >= .88 else "medio"}
-        for name, score in rows
-    ]
-    tints = ["Negro natural", "Castano oscuro", "Castano medio"]
-    return cuts, tints
+    """Contrato v1 conservado para backend y pruebas existentes."""
+    cuts, tint_services = recommend_detailed(face_shape, density, limit=3)
+    return cuts, [service["name"] for service in tint_services[:3]]

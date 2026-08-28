@@ -5,7 +5,8 @@ from io import BytesIO
 from PIL import Image
 
 from app import decode_image
-from recommendations import recommend
+from catalog import HAIRCUTS, TINT_SERVICES
+from recommendations import recommend, recommend_detailed
 
 
 class AnalyticsContractTests(unittest.TestCase):
@@ -13,6 +14,25 @@ class AnalyticsContractTests(unittest.TestCase):
         cuts, _ = recommend("ovalado", "media")
         self.assertEqual("MID_FADE", cuts[0]["nombre"])
         self.assertGreaterEqual(cuts[0]["score"], .75)
+
+    def test_catalog_has_meaningful_initial_coverage(self):
+        self.assertGreaterEqual(len(HAIRCUTS), 25)
+        self.assertGreaterEqual(len(TINT_SERVICES), 4)
+        self.assertEqual(len({style.code for style in HAIRCUTS}), len(HAIRCUTS))
+
+    def test_detailed_recommendations_are_explainable(self):
+        cuts, services = recommend_detailed("redondo", "alta", "rizado", "medio")
+        self.assertGreaterEqual(len(cuts), 5)
+        self.assertTrue(cuts[0]["razones"])
+        self.assertIn("nombre_visible", cuts[0])
+        self.assertTrue(all(item["requires_professional_review"] for item in services))
+
+    def test_long_styles_are_penalized_when_hair_is_short(self):
+        short_hair, _ = recommend_detailed("ovalado", "media", "lacio", "corto", limit=30)
+        long_hair, _ = recommend_detailed("ovalado", "media", "lacio", "largo", limit=30)
+        short_score = next(item["score"] for item in short_hair if item["nombre"] == "MAN_BUN")
+        long_score = next(item["score"] for item in long_hair if item["nombre"] == "MAN_BUN")
+        self.assertGreater(long_score, short_score)
 
     def test_decodes_valid_image(self):
         image = Image.new("RGB", (300, 300), "white")

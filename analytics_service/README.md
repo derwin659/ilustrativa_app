@@ -10,6 +10,11 @@ Microservicio Python compatible con `IaAnaliticaClient` del backend Spring.
 - Estima densidad/textura capilar para orientar opciones.
 - Devuelve cortes cuyos códigos existen en la IA generativa.
 - Nunca sustituye errores por recomendaciones simuladas.
+- Evalúa brillo, nitidez y tamaño relativo del rostro.
+- Estima densidad, textura y largo capilar con una confianza separada.
+- Puntúa un catálogo inicial de 26 estilos y explica los factores del ranking.
+- Distingue estilos con vista generativa preparada de recomendaciones todavía informativas.
+- Marca todo servicio químico como sujeto a evaluación profesional.
 
 ## Ejecutar localmente
 
@@ -39,11 +44,13 @@ Entrada:
 }
 ```
 
-La salida conserva `forma_rostro`, `cabello`, `recomendaciones` y `meta`, exactamente como esperan los DTO del backend.
+La salida conserva `forma_rostro`, `cabello`, `recomendaciones` y `meta`, exactamente como esperan los DTO del backend. También incluye `analisis_v2` con calidad de captura, rasgos capilares, ranking ampliado, razones y servicios sugeridos.
 
-## Alcance de geometry-v1
+## Alcance de hybrid-v2
 
-Esta primera versión usa detección y geometría visual conservadora. No es identificación biométrica ni diagnóstico médico. Antes de producción debe calibrarse con fotografías autorizadas y etiquetas de especialistas; el contrato HTTP no cambiará cuando se sustituya por landmarks/modelo entrenado.
+Esta versión combina detección, geometría visual y reglas explícitas. No es identificación biométrica, diagnóstico médico ni un modelo capilar entrenado. Las puntuaciones expresan compatibilidad del motor, no probabilidades clínicas o científicas.
+
+Para convertirla en un modelo calibrado se necesita un conjunto autorizado y diverso de fotografías frontales/laterales, con etiquetas independientes de al menos dos profesionales sobre forma facial, textura, largo, densidad y estilos recomendados. El contrato HTTP está versionado para sustituir las heurísticas sin romper backend o móvil.
 
 ## Pruebas
 
