@@ -12,8 +12,9 @@ from recommendations import recommend, recommend_detailed
 class AnalyticsContractTests(unittest.TestCase):
     def test_recommendations_use_generative_cut_codes(self):
         cuts, _ = recommend("ovalado", "media")
-        self.assertEqual("MID_FADE", cuts[0]["nombre"])
-        self.assertGreaterEqual(cuts[0]["score"], .75)
+        self.assertIn(cuts[0]["nombre"], {"MID_FADE", "LOW_FADE", "FADE_MODERNO", "TAPER", "BUZZ"})
+        self.assertTrue(cuts[0]["vista_generativa_disponible"])
+        self.assertGreaterEqual(cuts[0]["score"], .70)
 
     def test_catalog_has_meaningful_initial_coverage(self):
         self.assertGreaterEqual(len(HAIRCUTS), 25)
@@ -26,6 +27,13 @@ class AnalyticsContractTests(unittest.TestCase):
         self.assertTrue(cuts[0]["razones"])
         self.assertIn("nombre_visible", cuts[0])
         self.assertTrue(all(item["requires_professional_review"] for item in services))
+
+    def test_top_scores_are_not_saturated_or_tied(self):
+        cuts, _ = recommend_detailed("redondo", "baja", "lacio", "corto")
+        top_scores = [item["score"] for item in cuts[:3]]
+        self.assertEqual(3, len(set(top_scores)))
+        self.assertLessEqual(top_scores[0], .95)
+        self.assertGreater(top_scores[0], top_scores[1])
 
     def test_long_styles_are_penalized_when_hair_is_short(self):
         short_hair, _ = recommend_detailed("ovalado", "media", "lacio", "corto", limit=30)

@@ -18,7 +18,7 @@ class Haircut:
 
 
 HAIRCUTS = (
-    Haircut("MID_FADE", "Mid Fade", ("ovalado", "redondo", "cuadrado"), ("lacio", "ondulado", "rizado", "afro"), "corto", ("baja", "media", "alta"), "media", True),
+    Haircut("MID_FADE", "Mid Fade", ("redondo", "ovalado", "cuadrado"), ("lacio", "ondulado", "rizado", "afro"), "corto", ("baja", "media", "alta"), "media", True),
     Haircut("LOW_FADE", "Low Fade", ("ovalado", "cuadrado", "alargado"), ("lacio", "ondulado", "rizado", "afro"), "corto", ("baja", "media", "alta"), "media", True),
     Haircut("HIGH_FADE", "High Fade", ("ovalado", "redondo", "cuadrado"), ("lacio", "ondulado", "rizado", "afro"), "corto", ("media", "alta"), "alta"),
     Haircut("SKIN_FADE", "Skin Fade", ("ovalado", "redondo", "cuadrado"), ("lacio", "ondulado", "rizado", "afro"), "corto", ("media", "alta"), "alta"),
