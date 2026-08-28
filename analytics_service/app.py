@@ -45,8 +45,27 @@ def decode_image(value: str) -> np.ndarray:
 
 def face_geometry(image: np.ndarray) -> tuple[str, str, float, tuple[int, int, int, int]]:
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    enhanced = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8)).apply(gray)
     cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
-    faces = cascade.detectMultiScale(gray, scaleFactor=1.08, minNeighbors=6, minSize=(120, 120))
+    alternative = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_alt2.xml")
+
+    min_side = max(60, min(image.shape[:2]) // 10)
+    attempts = (
+        (cascade, gray, 1.08, 6),
+        (cascade, enhanced, 1.05, 4),
+        (alternative, enhanced, 1.05, 3),
+    )
+    faces = ()
+    for detector, source, scale_factor, neighbors in attempts:
+        detected = detector.detectMultiScale(
+            source,
+            scaleFactor=scale_factor,
+            minNeighbors=neighbors,
+            minSize=(min_side, min_side),
+        )
+        if len(detected) > 0:
+            faces = detected
+            break
     if len(faces) == 0:
         raise ValueError("No se detecto un rostro frontal. Mejora la luz y mira a la camara")
     x, y, w, h = max(faces, key=lambda box: box[2] * box[3])
