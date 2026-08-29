@@ -79,7 +79,7 @@ def health():
 def generar(req: RequestGenerar, request: Request):
     try:
         base_url = get_public_base_url(request)
-        return run_generation(req=req, base_url=base_url, save_files=True)
+        return run_generation(req=req, base_url=None, save_files=False)
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
