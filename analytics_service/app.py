@@ -11,7 +11,7 @@ from fastapi import FastAPI, HTTPException
 from PIL import Image, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field
 
-from recommendations import recommend_detailed
+from recommendations import recommend_for_preview
 
 app = FastAPI(title="Super Gods IA Analitica", version="1.0.0")
 
@@ -140,8 +140,7 @@ def analizar(request: AnalizarRequest):
         if not quality["apta"]:
             raise ValueError("La foto no permite una asesoria confiable: " + ", ".join(quality["advertencias"]) + ". Repite la captura con luz y sin mover la camara.")
         hair = hair_features(image, face)
-        cuts, tint_services = recommend_detailed(principal, hair["densidad"], hair["textura"], hair["largo"])
-        legacy_cuts = cuts[:3]
+        legacy_cuts, cuts, tint_services = recommend_for_preview(principal, hair["densidad"], hair["textura"], hair["largo"])
         legacy_tints = [service["name"] for service in tint_services[:3]]
         ondulado_apto = hair["densidad"] != "baja" and hair["largo"] in {"medio", "largo"}
         return {

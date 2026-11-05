@@ -6,7 +6,7 @@ from PIL import Image
 
 from app import decode_image
 from catalog import HAIRCUTS, TINT_SERVICES
-from recommendations import recommend, recommend_detailed
+from recommendations import recommend, recommend_detailed, recommend_for_preview
 
 
 class AnalyticsContractTests(unittest.TestCase):
@@ -48,6 +48,16 @@ class AnalyticsContractTests(unittest.TestCase):
         image.save(buffer, format="JPEG")
         decoded = decode_image(base64.b64encode(buffer.getvalue()).decode())
         self.assertEqual((300, 300, 3), decoded.shape)
+
+    def test_preview_alternatives_are_kept_when_top_advice_is_unsupported(self):
+        for shape in ["redondo", "ovalado", "alargado", "cuadrado"]:
+            choices, detailed, _ = recommend_for_preview(shape, "baja", "lacio", "corto")
+            self.assertEqual(len({item["nombre"] for item in choices}), len(choices))
+            available = {item["nombre"] for item in choices if item["vista_generativa_disponible"]}
+            self.assertTrue({"MID_FADE","LOW_FADE","FADE_MODERNO","TAPER","BUZZ"}.issubset(available))
+            ranked, _ = recommend_detailed(shape,"baja","lacio","corto",limit=len(HAIRCUTS))
+            original_scores = {item["nombre"]:item["score"] for item in ranked}
+            self.assertTrue(all(item["score"] == original_scores[item["nombre"]] for item in choices))
 
     def test_rejects_invalid_base64(self):
         with self.assertRaisesRegex(ValueError, "Base64"):

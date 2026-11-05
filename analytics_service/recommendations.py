@@ -59,3 +59,14 @@ def recommend(face_shape: str, density: str):
     """Contrato v1 conservado para backend y pruebas existentes."""
     cuts, tint_services = recommend_detailed(face_shape, density, limit=3)
     return cuts, [service["name"] for service in tint_services[:3]]
+
+def recommend_for_preview(face_shape: str, density: str, texture: str, length: str):
+    """Keep the top advice and append ranked, scored alternatives the worker supports."""
+    ranked, services = recommend_detailed(face_shape, density, texture, length, limit=len(HAIRCUTS))
+    choices = list(ranked[:3])
+    seen = {item["nombre"] for item in choices}
+    for item in ranked:
+        if item["vista_generativa_disponible"] and item["nombre"] not in seen:
+            choices.append(item)
+            seen.add(item["nombre"])
+    return choices, ranked[:8], services
