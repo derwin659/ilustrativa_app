@@ -58,3 +58,12 @@ Para convertirla en un modelo calibrado se necesita un conjunto autorizado y div
 $env:PYTHONPATH=(Get-Location).Path
 .\.venv\Scripts\python.exe -m unittest discover -s tests -v
 ```
+
+
+## Validación de retrato (portrait-v3)
+
+Antes de recomendar se normaliza EXIF, se limita la resolución y se exige una sola detección frontal concordante entre dos cascadas, ojos localizables, cercanía suficiente y calidad de captura. `/health` informa `portrait-v3`. Los rechazos devuelven 422 con instrucciones para repetir la foto, sin recomendaciones.
+
+Esto no verifica presencia en vivo: una fotografía de una persona mostrada en una pantalla puede pasar. Tampoco es reconocimiento de identidad. Las cascadas pueden rechazar fotos reales con gafas, oclusiones o poses difíciles; validar el piloto antes de ampliar. La forma facial y los rasgos capilares continúan siendo estimaciones heurísticas, no diagnóstico ni un clasificador facial entrenado con landmarks. La colección de cortes se prepara en `datasets/haircuts/README.md`.
+
+Despliegue: publicar el servicio analítico en Railway; no basta actualizar la imagen del generador en RunPod. No se publicaron cambios a Railway desde esta revisión.

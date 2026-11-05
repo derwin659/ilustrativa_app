@@ -1,0 +1,14 @@
+# Reuse the exact validated CUDA runtime; overlay current worker code.
+FROM derwin659/supergods-illustrative-serverless@sha256:05baee505ebaef61af003fa7367f9ed6684e7fae180a910b607fdc3e8a0c2c5c
+WORKDIR /app
+# Explicit trial mode: does not claim a trained haircut LoRA.
+ENV REQUIRE_LORA=false
+RUN pip uninstall -y insightface onnx onnxruntime albumentations && pip check
+COPY services/ ./services/
+COPY schemas_runpod.py handler.py worker_startup.py ./
+COPY tests/ ./tests/
+# Legacy identity adapter is not a supported Serverless entrypoint.
+RUN rm -f /app/services/ip_adapter_services.py
+RUN python -c "from pathlib import Path; import cv2; p=Path(cv2.data.haarcascades)/'haarcascade_frontalface_default.xml'; text=p.read_text(); Path('/app/OPENCV_FACE_LICENSE.txt').write_text(text.split('<!--',1)[1].split('-->',1)[0])"
+RUN python -m compileall -q services schemas_runpod.py handler.py worker_startup.py && python -m unittest discover -s tests -v && pip freeze > /app/installed-requirements.txt
+CMD ["python", "handler.py"]

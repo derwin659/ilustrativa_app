@@ -1,0 +1,9 @@
+FROM derwin659/supergods-illustrative-serverless@sha256:6a6aed836f1e03a31186bb3ac37c01977a345a18d06996505532372934c55f15
+WORKDIR /app
+ENV PYTHONDONTWRITEBYTECODE=1 ENABLE_ATTENTION_SLICING=false
+COPY services/ ./services/
+COPY schemas_runpod.py handler.py worker_startup.py ./
+COPY tests/ ./tests/
+RUN rm -f /app/services/ip_adapter_services.py
+RUN --network=none python -m unittest discover -s tests -v
+CMD ["python", "handler.py"]

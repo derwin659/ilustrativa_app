@@ -1,6 +1,13 @@
 venv
-__pycache__
-*.pyc
+.venv
+**/__pycache__
+**/*.pyc
 .git
 .idea
 static
+.env
+.env.*
+lora/dataset
+lora/output
+*.pem
+*.key

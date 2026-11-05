@@ -12,7 +12,8 @@ from diffusers import (
     UniPCMultistepScheduler,
 )
 
-from insightface.app import FaceAnalysis
+from services.face_detector import get_face_bbox
+from services.image_preparation import prepare_inference_image, preserve_unmasked_pixels, ensure_visible_edit
 
 # =========================
 # FLAGS
@@ -38,7 +39,7 @@ def make_generator():
 # =========================
 LORA_MID_FADE_PATH = os.getenv(
     "LORA_MID_FADE_PATH",
-    "/workspace/ilustrativa_app/loras/mid_fade_sd15.safetensors"
+    os.path.join(os.path.dirname(os.path.dirname(__file__)), "lora", "output", "mid_fade_sd15.safetensors")
 )
 LORA_SCALE = float(os.getenv("LORA_SCALE", "0.85"))
 
@@ -71,9 +72,6 @@ PIPE_LORA_READY = set()
 # =========================
 # FACE ANALYSIS (CPU)
 # =========================
-face_app = FaceAnalysis(name="buffalo_l")
-face_app.prepare(ctx_id=-1)
-
 # =========================
 # PIPELINE UTILS
 # =========================
@@ -81,7 +79,9 @@ def _apply_stable_settings(pipe):
     pipe.scheduler = UniPCMultistepScheduler.from_config(pipe.scheduler.config)
 
     if DEVICE == "cuda":
-        pipe.enable_attention_slicing()
+        # SDPA is already provided by modern PyTorch; slicing serializes attention.
+        if os.getenv("ENABLE_ATTENTION_SLICING", "false").lower() == "true":
+            pipe.enable_attention_slicing()
 
         if ENABLE_VAE_OPT and hasattr(pipe, "vae"):
             try:
@@ -101,6 +101,7 @@ def get_pipe_inpaint():
         if pipe_inpaint is None:
             pipe_inpaint = StableDiffusionInpaintPipeline.from_pretrained(
                 SD_MODEL,
+                local_files_only=os.getenv("MODEL_LOCAL_FILES_ONLY", "false").lower() == "true",
                 torch_dtype=DTYPE,
                 safety_checker=None,
             ).to(DEVICE)
@@ -119,12 +120,14 @@ def get_pipe_cn_inpaint():
         if pipe_cn_inpaint is None:
             controlnet = ControlNetModel.from_pretrained(
                 CONTROLNET_MODEL,
+                local_files_only=os.getenv("MODEL_LOCAL_FILES_ONLY", "false").lower() == "true",
                 torch_dtype=DTYPE,
             ).to(DEVICE)
 
             pipe_cn_inpaint = StableDiffusionControlNetInpaintPipeline.from_pretrained(
                 SD_MODEL,
                 controlnet=controlnet,
+                local_files_only=os.getenv("MODEL_LOCAL_FILES_ONLY", "false").lower() == "true",
                 torch_dtype=DTYPE,
                 safety_checker=None,
             ).to(DEVICE)
@@ -142,6 +145,8 @@ def aplicar_lora(pipe, key: str):
         return
 
     if not os.path.exists(LORA_MID_FADE_PATH):
+        if os.getenv("REQUIRE_LORA", "false").lower() == "true":
+            raise RuntimeError("Missing trained LoRA at LORA_MID_FADE_PATH")
         return
 
     pipe.load_lora_weights(
@@ -149,29 +154,9 @@ def aplicar_lora(pipe, key: str):
         weight_name=os.path.basename(LORA_MID_FADE_PATH),
     )
 
-    try:
-        pipe.fuse_lora(lora_scale=LORA_SCALE)
-    except Exception:
-        pass
+    pipe.fuse_lora(lora_scale=LORA_SCALE)
 
     PIPE_LORA_READY.add(key)
-
-# =========================
-# FACE BBOX CACHE
-# =========================
-def get_face_bbox(img: Image.Image):
-    img_np = cv2.cvtColor(np.array(img), cv2.COLOR_RGB2BGR)
-    faces = face_app.get(img_np)
-
-    if not faces:
-        return None
-
-    face = max(
-        faces,
-        key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1])
-    )
-
-    return [int(v) for v in face.bbox]
 
 # =========================
 # MASKS
@@ -179,33 +164,31 @@ def get_face_bbox(img: Image.Image):
 def frontal_mask(img, bbox):
     W, H = img.size
     mask = Image.new("L", (W, H), 0)
+    if not bbox:
+        return mask
+    x1, y1, x2, y2 = bbox
+    bw, bh = x2 - x1, y2 - y1
     d = ImageDraw.Draw(mask)
-
-    if bbox:
-        x1, y1, x2, y2 = bbox
-        bh = y2 - y1
-        d.rectangle([0, max(0, y1 - int(0.6 * bh)), W, int(H * 0.85)], fill=255)
-        d.rectangle([x1, y1 + int(0.15 * bh), x2, y2], fill=0)
-    else:
-        d.rectangle([0, 0, W, int(H * 0.55)], fill=255)
-
-    return mask.filter(ImageFilter.GaussianBlur(14))
+    d.ellipse([max(0, x1 - .18*bw), max(0, y1 - .65*bh), min(W-1, x2 + .18*bw), min(H-1, y1 + .45*bh)], fill=255)
+    mask = mask.filter(ImageFilter.GaussianBlur(5))
+    # Hard exclusion AFTER feathering preserves eyes, glasses, nose and mouth.
+    ImageDraw.Draw(mask).rectangle([x1, y1 + .08*bh, x2, y2], fill=0)
+    return mask
 
 
 def lateral_mask(img):
     W, H = img.size
     mask = Image.new("L", (W, H), 0)
-    d = ImageDraw.Draw(mask)
-    d.rectangle([int(W * 0.3), int(H * 0.15), W, H], fill=255)
-    d.rectangle([0, int(H * 0.7), W, H], fill=0)
-    return mask.filter(ImageFilter.GaussianBlur(14))
+    # Framing prior, not semantic hair segmentation. Guided capture is required.
+    ImageDraw.Draw(mask).ellipse([W*.18, H*.06, W*.82, H*.57], fill=255)
+    return mask.filter(ImageFilter.GaussianBlur(5))
 
 
 def trasera_mask(img):
     W, H = img.size
     mask = Image.new("L", (W, H), 0)
-    ImageDraw.Draw(mask).rectangle([0, int(H * 0.25), W, H], fill=255)
-    return mask.filter(ImageFilter.GaussianBlur(16))
+    ImageDraw.Draw(mask).ellipse([W*.16, H*.07, W*.84, H*.75], fill=255)
+    return mask.filter(ImageFilter.GaussianBlur(5))
 
 
 # =========================
@@ -213,51 +196,42 @@ def trasera_mask(img):
 # =========================
 def generar_sd(prompt: str, base_image: Image.Image, vista: str, corte_tipo: str):
     if DEVICE != "cuda":
-        return base_image
+        raise RuntimeError("CUDA GPU is required for image generation")
 
     vista = vista.lower()
-    corte_tipo = corte_tipo.lower()
-    generator = make_generator()
-
-    bbox = get_face_bbox(base_image)
+    if vista not in {"frontal", "lateral", "trasera"}:
+        raise ValueError("Unsupported generation view")
+    original = base_image.convert("RGB")
+    base_image = prepare_inference_image(original)
+    bbox = get_face_bbox(base_image) if vista in {"frontal", "trasera"} else None
+    if vista == "frontal" and bbox is None:
+        raise ValueError("No se detecto un rostro frontal unico. Mira a la camara y mejora la iluminacion.")
+    if vista == "trasera" and bbox is not None:
+        raise ValueError("La foto trasera muestra un rostro frontal. Captura la parte posterior de la cabeza.")
 
     pipe = get_pipe_inpaint()
-    aplicar_lora(pipe, "mid_fade")
-
+    if corte_tipo.upper() == "MID_FADE":
+        aplicar_lora(pipe, "mid_fade")
     if vista == "frontal":
-        return pipe(
-            prompt=prompt + ", natural hairline, soft barber lineup",
-            negative_prompt=NEGATIVE,
-            image=base_image,
-            mask_image=frontal_mask(base_image, bbox),
-            strength=0.45,
-            guidance_scale=7,
-            num_inference_steps=28,
-            generator=generator
-        ).images[0]
+        mask = frontal_mask(base_image, bbox)
+        suffix, negative, strength = ", natural hairline, soft barber lineup", NEGATIVE, 0.68
+    elif vista == "lateral":
+        mask = lateral_mask(base_image)
+        suffix, negative, strength = ", side profile, natural fade transition", NEGATIVE, 0.78
+    else:
+        mask = trasera_mask(base_image)
+        suffix, negative, strength = ", rear view, nape visible, no face visible", NEGATIVE, 0.78
 
-    if vista == "lateral":
-        return pipe(
-            prompt=prompt + ", professional mid fade, skin fade to zero",
-            negative_prompt=NEGATIVE_ZERO,
-            image=base_image,
-            mask_image=lateral_mask(base_image),
-            strength=0.75,
-            guidance_scale=7,
-            num_inference_steps=28,
-            generator=generator
-        ).images[0]
-
-    if vista == "trasera":
-        return pipe(
-            prompt=prompt + ", clean mid fade on the nape",
-            negative_prompt=NEGATIVE_ZERO,
-            image=base_image,
-            mask_image=trasera_mask(base_image),
-            strength=0.75,
-            guidance_scale=7,
-            num_inference_steps=28,
-            generator=generator
-        ).images[0]
-
-    return base_image
+    generated = pipe(
+        prompt=prompt + suffix,
+        negative_prompt=negative,
+        image=base_image,
+        mask_image=mask,
+        strength=strength,
+        guidance_scale=7,
+        num_inference_steps=24,
+        generator=make_generator(),
+    ).images[0]
+    ensure_visible_edit(base_image, generated, mask)
+    result = preserve_unmasked_pixels(original, generated, mask)
+    return result

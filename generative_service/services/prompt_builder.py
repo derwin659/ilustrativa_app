@@ -7,6 +7,7 @@ BASE_PROMPT = (
 
 
 TINTE_PROMPTS = {
+    "oscurecimiento natural": "natural dark brown hair, even natural hair color",
     "platino": (
         "platinum blonde hair, "
         "very light blonde hair, "
@@ -39,14 +40,16 @@ CORTE_PROMPTS = {
     "clean low fade"
     ),
     "MID_FADE": (
-    "mid fade haircut, professional barber fade, "
-    "realistic scalp texture, smooth skin to mid gradient"
+    "professional mid skin fade haircut, closely shaved lower sides around ears, "
+    "fade transition at the middle of the sides of the head, visible gradual blend from bare skin to short hair, "
+    "preserve hair length on top, realistic scalp texture, clean barber finish"
     )
 }
 
 
 
 ONDULADO_PROMPTS = {
+    "ondulado": "soft natural wavy hair texture",
     "ondulado_suave": (
         "soft wavy hair texture, "
         "subtle natural waves, "
@@ -60,7 +63,8 @@ ONDULADO_PROMPTS = {
 VISTA_PROMPTS = {
     "frontal": "front view, face clearly visible",
     "lateral": "side profile view, fade clearly visible",
-    "atras": "back view of the head, nape fade visible"
+    "trasera": "back view of the head, nape fade visible, face not visible",
+    "atras": "back view of the head, nape fade visible, face not visible"
 }
 
 NEGATIVE_ZERO = (
@@ -138,7 +142,7 @@ def build_prompt(req, vista: str) -> str:
     parts = [BASE_PROMPT]
 
     # 🔹 Corte (USAR TIPO, NO NOMBRE)
-    corte_prompt = CORTE_PROMPTS.get(req.corte.tipo)
+    corte_prompt = CORTE_PROMPTS.get(req.corte.tipo.upper())
     if corte_prompt:
         parts.append(corte_prompt)
 
